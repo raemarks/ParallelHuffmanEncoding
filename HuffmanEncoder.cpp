@@ -11,12 +11,7 @@ struct HuffmanTreeCompare {
 
 void printChar(char c)
 {
-	if (c == '\n')
-		printf("\\n");
-	else if (c == '\r')
-		printf("\\r");
-	else
-		printf("%c", c);
+	printf("%d", (int) c);
 }
 
 	HuffmanTree*
@@ -40,7 +35,6 @@ HuffmanEncoder::huffmanTreeFromText(vector<string> data)
 		HuffmanTreeCompare> forest;
 
 	for (auto it = freqMap.begin(); it != freqMap.end(); it++) {
-		cout << (int)it->first << endl;
 		HuffmanTree *tree = new HuffmanTree(it->first, it->second);
 		forest.push(tree);
 	}
@@ -76,9 +70,6 @@ HuffmanEncoder::huffmanTreeFromMap(string* huffmanMap)
 		if (code.length() == 0)
 			continue;
 		HuffmanInternalNode *n = (HuffmanInternalNode*)tree->GetRoot();
-		printf("Adding ");
-		printChar(c);
-		printf(" = %s to tree\n", code.c_str());
 
 		for (unsigned int i = 0; i < code.length() -1; ++i) {
 			if (code[i] == '0') {
@@ -119,7 +110,6 @@ HuffmanEncoder::huffmanTreeFromMap(string* huffmanMap)
 	void
 recursiveBuildMapFromTree(HuffmanNode *n, string s, string* m)
 {
-	printf("Entering recursiveBuildMapFromTree\n");
 	if (n->IsLeaf()) {
 		//Base case
 		HuffmanLeafNode *ln = (HuffmanLeafNode*) n;
@@ -137,7 +127,6 @@ recursiveBuildMapFromTree(HuffmanNode *n, string s, string* m)
 		}
 		return;
 	}
-	printf("Exiting recursiveBuildMapFromTree\n");
 }
 
 	string*
@@ -184,7 +173,7 @@ HuffmanEncoder::writeEncodingMapToFile(string* huffmanMap, string file_name)
 
 
 		/* Write length of code */
-		toWrite[index++] = (uint8_t) code.length();
+		toWrite[index++] = (char) code.length();
 		c = 0;
 		/* Convert code from chars to bits */
 		for (unsigned int j = 0; j < code.length(); j++) {
@@ -250,18 +239,14 @@ HuffmanEncoder::decodeBits(vector<bool> bits, string* huffmanMap)
 	for (auto it = bits.begin(); it != bits.end(); ++it) {
 		bool bit = *it;
 		if (bit == false) {
-			printf("Left\n");
 			n = ((HuffmanInternalNode*)n)->GetLeftChild();
 		}
 		else {
-			printf("Right\n");
 			n = ((HuffmanInternalNode*)n)->GetRightChild();
 		}
 		if (n->IsLeaf()) {
 			result << ((HuffmanLeafNode*)n)->GetValue();
-			printf("Decoded ");
-			printChar(((HuffmanLeafNode*)n)->GetValue());
-			printf("\n");
+			printf("Decoded %d\n", (int) ((HuffmanLeafNode*)n)->GetValue());
 			n = tree->GetRoot();
 		}
 	}
@@ -278,21 +263,16 @@ HuffmanEncoder::toBinary(vector<string> text, string* huffmanMap)
 
 	for (auto it = text.begin(); it != text.end(); ++it) {
 		string s = *it;
-		printf("Encoding %s\n", s.c_str());
 
 		for (auto it2 = s.begin(); it2 != s.end(); ++it2) {
 			char c = *it2;
 			string code = huffmanMap[(int)c];
-			printf("Encoding ");
-			printChar(c);
-			printf("\n");
 
 			for (auto it3 = code.begin(); it3 != code.end(); ++it3) {
 				char b = *it3;
-				printf("%c", b);
 				result.push_back(b == '1');
 			}
-			printf("\n");
+			printf("Encoded %d\n", (int) c);
 		}
 	}
 

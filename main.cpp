@@ -124,9 +124,7 @@ int main(int argc, char* argv[])
 			vector<bool> raw_stream = HuffmanEncoder::toBinary(file_contents, encoder);
 
 			//PROVIDED: write vector of bits to separate file
-			printf("Splitting %s\n", to_compress.c_str());
 			vector<string> pieces = StringSplitter::split(string(to_compress), ".");
-			printf("Finished split\n");
 			string file_name = pieces[0];
 			string extension = "";
 			if (pieces.size() > 1)
@@ -135,7 +133,6 @@ int main(int argc, char* argv[])
 			}
 			string output_file_name = string(file_name) + ".pa2c";
 			BinaryFile::WriteToFile(raw_stream, output_file_name);
-			printf("Finished writing to file\n");
 
 			//PA #2: write map to file
 			string map_file = string(file_name) + ".pa2m";
