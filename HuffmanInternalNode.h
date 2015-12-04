@@ -11,8 +11,8 @@ using std::vector;
 class HuffmanInternalNode : public HuffmanNode
 {
 	private:
-		HuffmanNode *_left_child = NULL;
-		HuffmanNode *_right_child = NULL;
+		HuffmanNode *_left_child;
+		HuffmanNode *_right_child;
 
 	public:
 		HuffmanInternalNode(HuffmanNode *left_child,
@@ -40,7 +40,12 @@ class HuffmanInternalNode : public HuffmanNode
 
 		HuffmanNode *GetRightChild() const
 		{
-			return _right_child;
+			HuffmanNode *c;
+			if (this == NULL) {
+				printf("this is null!\n");
+			}
+			c = _right_child;
+			return c;
 		}
 
 		void SetLeftChild(HuffmanNode *node)

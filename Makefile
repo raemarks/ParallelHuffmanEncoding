@@ -6,7 +6,7 @@ all:
 run:
 	#mpiexec -machinefile ./machinefile4.txt -n 4 ./a.out 536870912 "junk.csv"
 send:
-	rsync machinefile1.txt machinefile2.txt machinefile4.txt main.cpp HuffmanInternalNode.cpp HuffmanInternalNode.h BinaryFile.h HuffmanNode.h HuffmanLeafNode.h BinaryFile.cpp Makefile rmarks@ssh1.eecs.wsu.edu:/net/u/rmarks/pvt/
+	rsync machinefile1.txt machinefile2.txt machinefile4.txt test_huffman.sh main.cpp HuffmanTree.h HuffmanInternalNode.h BinaryFile.h HuffmanNode.h HuffmanEncoder.cpp StringSplitter.h HuffmanEncoder.h HuffmanLeafNode.h BinaryFile.cpp Makefile rmarks@ssh1.eecs.wsu.edu:/net/u/rmarks/pvt/
 
 test:
 	./run_tests.sh

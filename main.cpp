@@ -4,6 +4,9 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #include "HuffmanEncoder.h"
 #include "HuffmanTree.h"
@@ -11,75 +14,20 @@
 
 static vector<string> readFile(string input_file_name)
 {
-	vector<string> result{};
-	ifstream input_file{ input_file_name, ios::binary };
-	if (input_file.is_open() == true)
-	{
-		string line = "";
-		while (input_file.good() == true)
-		{
-			getline(input_file, line);
-			result.push_back(line);
-		}
+	vector<string> result;
+	int fd = open(input_file_name.c_str(), O_RDONLY);
+	int n;
+	char buf[4096];
+
+	if (fd < 0) {
+		printf("Couldn't open file for reading\n");
+		exit(1);
+	}
+
+	while ((n = read(fd, buf, 4096)) != 0) {
+		result.push_back((string(buf)).substr(0, n));
 	}
 	return result;
-}
-
-//test function for HuffmanEncoder
-void pa2Test()
-{
-#if 0
-	vector<string> files{ "test.txt", "savio.txt", "kennedy.txt" };
-	for (string file : files)
-	{
-		cout << "Analzying file " << file << "..." << endl;
-
-		//PROVIDED: read contents of file into vector of strings
-		vector<string> file_contents = readFile(file);
-
-		//PA #2: build tree
-		HuffmanTree *coding_tree = HuffmanEncoder::huffmanTreeFromText(file_contents);
-
-		//PA #2: generate encoding map
-		string* encoder = HuffmanEncoder::huffmanEncodingMapFromTree(coding_tree);
-
-		//PROVIDED: convert file into vector of bits
-		vector<bool> raw_stream = HuffmanEncoder::toBinary(file_contents, encoder);
-
-		//PROVIDED: write vector of bits to separate file
-		vector<string> pieces = StringSplitter::split(string(file), ".");
-		string file_name = pieces[0];
-		string extension = "";
-		if (pieces.size() > 1)
-		{
-			extension = pieces[1];
-		}
-
-		string output_file_name = string(file_name) + ".pa2c";
-		BinaryFile::WriteToFile(raw_stream, output_file_name);
-
-		//PA #2: write map to file
-		string map_file = string(file_name) + ".pa2m";
-		HuffmanEncoder::writeEncodingMapToFile(encoder, map_file);
-
-		//PA #2: get bits back from file
-		vector<bool> bits_from_file = BinaryFile::ReadFromFile(output_file_name);
-
-		//PA #2: read map from file
-		string* encoder_from_file = HuffmanEncoder::readEncodingMapFromFile(map_file);
-
-		//PA #2: convert file bits back into text
-		string text = HuffmanEncoder::decodeBits(bits_from_file, encoder_from_file);
-
-		//PA #2: write decompressed back to file
-		output_file_name = string(file_name) + "_1." + extension;
-		ofstream output_file{ output_file_name };
-		output_file << text;
-		output_file.close();
-
-		delete coding_tree;
-	}
-#endif
 }
 
 //outputs HuffmanEncoder exe usage
@@ -92,7 +40,6 @@ void outputUsage()
 	cout << "decompress - decompresses <File1> into <File2>" << endl;
 }
 
-
 int main(int argc, char* argv[])
 {
 	//calling for unit tests?
@@ -100,7 +47,6 @@ int main(int argc, char* argv[])
 	{
 		if (string(argv[1]) == "test")
 		{
-			pa2Test();
 			return 0;
 		}
 		outputUsage();
@@ -118,7 +64,7 @@ int main(int argc, char* argv[])
 			HuffmanTree *coding_tree = HuffmanEncoder::huffmanTreeFromText(file_contents);
 
 			//PA #2: generate encoding map
-			string* encoder = HuffmanEncoder::huffmanEncodingMapFromTree(coding_tree);
+			vector<string> encoder = HuffmanEncoder::huffmanEncodingMapFromTree(coding_tree);
 
 			//PROVIDED: convert file into vector of bits
 			vector<bool> raw_stream = HuffmanEncoder::toBinary(file_contents, encoder);
@@ -168,7 +114,7 @@ int main(int argc, char* argv[])
 			vector<bool> bits_from_file = BinaryFile::ReadFromFile(to_decompress);
 
 			//PA #2: read map from file
-			string* encoder_from_file = HuffmanEncoder::readEncodingMapFromFile(file_name + ".pa2m");
+			vector<string> encoder_from_file = HuffmanEncoder::readEncodingMapFromFile(file_name + ".pa2m");
 
 			//PA #2: convert file bits back into text
 			string text = HuffmanEncoder::decodeBits(bits_from_file, encoder_from_file);

@@ -11,6 +11,9 @@ public:
 	{
 		_value = value;
 		_weight = frequency;
+		if (value < 0) {
+			printf("VALUE IS NEGATIVE %d\n", (int)value);
+		}
 	}
 
 	~HuffmanLeafNode() {}

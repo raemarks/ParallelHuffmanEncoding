@@ -105,7 +105,7 @@ class HuffmanTree
 
 				//make sure that we're dealing with an actual
 				//binary node
-				if (casted_node != nullptr) {
+				if (casted_node != NULL) {
 					//add last's children to the stack
 					nodes.push_back(casted_node->GetLeftChild());
 					nodes.push_back(casted_node->GetRightChild());
