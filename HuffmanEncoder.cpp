@@ -13,7 +13,9 @@ struct HuffmanTreeCompare {
 	}
 };
 
-static vector<string> readFile(string input_file_name)
+#if 0
+static vector<string>
+readFile(string input_file_name)
 {
 	vector<string> result;
 	int fd = open(input_file_name.c_str(), O_RDONLY);
@@ -30,54 +32,11 @@ static vector<string> readFile(string input_file_name)
 	}
 	return result;
 }
+#endif
 
 void printChar(char c)
 {
 	printf("%d", (int) c);
-}
-
-	int
-HuffmanEncoder::CompressFile(string source, string dest)
-{
-	string to_compress = string(source);
-	cout << "Compressing file " << to_compress << "..." << endl;
-	vector<string> file_contents = readFile(to_compress);
-
-	//PA #2: build tree
-	HuffmanTree *coding_tree = HuffmanEncoder::huffmanTreeFromText(file_contents);
-
-	//PA #2: generate encoding map
-	vector<string> encoder = HuffmanEncoder::huffmanEncodingMapFromTree(coding_tree);
-
-	//PROVIDED: convert file into vector of bits
-	vector<bool> raw_stream = HuffmanEncoder::toBinary(file_contents, encoder);
-
-	BinaryFile::WriteToFile(raw_stream, dest);
-
-	//PA #2: write map to file
-	string map_file = string(dest) + ".pa2m";
-	HuffmanEncoder::writeEncodingMapToFile(encoder, map_file);
-
-	delete coding_tree;
-
-	return 0;
-}
-
-	int
-HuffmanEncoder::DecompressFile(string source, string dest)
-{
-	cout << "Decompressing " << source << "..." << endl;
-
-	vector<bool> bits_from_file = BinaryFile::ReadFromFile(source);
-
-	vector<string> encoder_from_file = HuffmanEncoder::readEncodingMapFromFile(source + ".pa2m");
-
-	string text = HuffmanEncoder::decodeBits(bits_from_file, encoder_from_file);
-
-	ofstream output_file{ dest };
-	output_file << text;
-	output_file.close();
-	return 0;
 }
 
 	HuffmanTree*
@@ -229,91 +188,15 @@ HuffmanEncoder::writeEncodingMapToFile(vector<string> huffmanMap, string file_na
 	 * contains the actual bits. We are encoding at the byte level, so our
 	 * alphabet is of size 256.*/
 
-	int length = stoi(huffmanMap[256]);
-	int size;
-	int len;
-	uint64_t compressed;
-	int index;
-	void *toWrite;
 	ofstream outFile(file_name.c_str(), ofstream::binary);
 
-	if (!outFile.good()) {
-		printf("Couldn't open map file for writing! \n");
-		exit(1);
+	for (int i = 0; i < huffmanMap.size() - 2; i++) {
+		outFile << i << " : " << huffmanMap[i] << endl;
 	}
+	outFile << "Length of codes: " << huffmanMap[256] << endl;
 
-	if (length <= 8) {
-		size = 512*sizeof(uint8_t);
-		len = 8;
-	}
-	else if (length <= 16) {
-		size = 512*sizeof(uint16_t);
-		len = 16;
-	}
-	else if (length <= 32) {
-		size = 512*sizeof(uint32_t);
-		len = 32;
-	}
-	else if (length <= 64) {
-		size = 512*sizeof(uint64_t);
-		len = 64;
-	}
-	else {
-		printf("Length not correct. Length = %d\n", length);
-		exit(1);
-	}
-	toWrite = malloc(size);
-	memset(toWrite, 0, size);
-
-	for (int i = 4; i < 256; i++) {
-		/* Write at appropriate spot in array */
-		index = i*2;
-		string code = huffmanMap[i];
-
-		/* Write length of code */
-		switch(len) {
-			case 8:
-				((uint8_t*)toWrite)[index++] = code.length();
-				break;
-			case 16:
-				((uint16_t*)toWrite)[index++] = code.length();
-				break;
-			case 32:
-				((uint32_t*)toWrite)[index++] = code.length();
-				break;
-			case 64:
-				((uint64_t*)toWrite)[index++] = code.length();
-				break;
-		}
-		compressed = 0;
-		/* Convert code from chars to bits */
-		for (unsigned int j = 0; j < code.length(); j++) {
-			compressed <<= 1;
-			if (code[j] == '1') {
-				compressed |= 1;
-			}
-		}
-		/* Write code */
-		switch(len) {
-			case 8:
-				((uint8_t*)toWrite)[index]= (uint8_t)compressed;
-				break;
-			case 16:
-				((uint16_t*)toWrite)[index]= (uint16_t)compressed;
-				break;
-			case 32:
-				((uint32_t*)toWrite)[index]= (uint32_t)compressed;
-				break;
-			case 64:
-				((uint64_t*)toWrite)[index]= compressed;
-				break;
-		}
-	}
 	/* Write #bits needed to store the max code length */
-	outFile.write((const char*)&len, (int)sizeof(int));
-	outFile.write((const char*)toWrite, size);
 	outFile.close();
-	free(toWrite);
 }
 
 	vector<string>
@@ -396,6 +279,11 @@ HuffmanEncoder::decodeBits(vector<bool> bits, vector<string> huffmanMap)
 	HuffmanTree *tree = HuffmanEncoder::huffmanTreeFromMap(huffmanMap);
 	HuffmanNode *n = tree->GetRoot();
 	ostringstream result{};
+	char last_char = 0;
+	uint64_t last_index = 0;
+
+	printf("Tree:\n");
+	tree->Print();
 
 
 	for (auto it = bits.begin(); it != bits.end(); ++it) {
@@ -409,10 +297,15 @@ HuffmanEncoder::decodeBits(vector<bool> bits, vector<string> huffmanMap)
 		else {
 			n = ((HuffmanInternalNode*)n)->GetRightChild();
 		}
+		if (n == NULL) {
+			printf("N was null! Last char: %c at index %ld\n", last_char, last_index);
+		}
 		if (n->IsLeaf()) {
 			result << ((HuffmanLeafNode*)n)->GetValue();
+			last_char =  ((HuffmanLeafNode*)n)->GetValue();
 			n = tree->GetRoot();
 		}
+		last_index++;
 	}
 
 	return result.str();

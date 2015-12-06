@@ -23,9 +23,6 @@ class HuffmanEncoder
 	static int
 		findSmallestTree(vector<HuffmanTree *>& forest, int index_to_ignore = -1);
 
-	static int CompressFile(string source, string dest);
-	static int DecompressFile(string source, string dest);
-
 	/* Generates a Huffman character tree from the supplied
 	 * text */
 	static HuffmanTree *huffmanTreeFromText(vector<string> data);

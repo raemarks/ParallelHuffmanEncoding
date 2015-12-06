@@ -52,80 +52,53 @@ int main(int argc, char* argv[])
 		outputUsage();
 		return 0;
 	}
-	else if(argc == 3)
-	{
-		if (string(argv[1]) == "compress")
-		{
+	else if(argc == 3) {
+		if (string(argv[1]) == "compress") {
 			string to_compress = string(argv[2]);
 			cout << "Compressing file " << to_compress << "..." << endl;
 			vector<string> file_contents = readFile(to_compress);
 
-			//PA #2: build tree
 			HuffmanTree *coding_tree = HuffmanEncoder::huffmanTreeFromText(file_contents);
 
-			//PA #2: generate encoding map
 			vector<string> encoder = HuffmanEncoder::huffmanEncodingMapFromTree(coding_tree);
 
-			//PROVIDED: convert file into vector of bits
+			HuffmanEncoder::writeEncodingMapToFile(encoder, to_compress + ".map");
 			vector<bool> raw_stream = HuffmanEncoder::toBinary(file_contents, encoder);
 
-			//PROVIDED: write vector of bits to separate file
-			vector<string> pieces = StringSplitter::split(string(to_compress), ".");
-			string file_name = pieces[0];
-			string extension = "";
-			if (pieces.size() > 1)
-			{
-				extension = pieces[1];
-			}
-			string output_file_name = string(file_name) + ".pa2c";
-			BinaryFile::WriteToFile(raw_stream, output_file_name);
-
-			//PA #2: write map to file
-			string map_file = string(file_name) + ".pa2m";
-			HuffmanEncoder::writeEncodingMapToFile(encoder, map_file);
+			string output_file_name = string(to_compress) + ".hez";
+			BinaryFile::WriteToFile(raw_stream, output_file_name, encoder);
 
 			delete coding_tree;
 		}
-		else
-		{
-			outputUsage();
-			return 0;
-		}
-	}
-	else if (argc == 4)
-	{
-		if (string(argv[1]) == "decompress")
-		{
-			cout << "Decompressing " << argv[2] << "..." << endl;
+		else if (string(argv[1]) == "decompress") {
+			cout << "Decompressing " << argv[1] << "..." << endl;
 
 			string to_decompress = argv[2];
-			string extract_location = argv[3];
 
 			//separate extension from name in to_decompress
-			vector<string> pieces = StringSplitter::split(string(to_decompress), ".");
-			string file_name = pieces[0];
-			string extension = "";
-			if (pieces.size() > 1)
-			{
-				extension = pieces[1];
+			if (to_decompress.size() < 5 ||
+					to_decompress.substr(to_decompress.size()-4,4) != ".hez") {
+
+					printf("Extension mismatch, nothing to do\n");
+					return (1);
 			}
 
-			//PA #2: get bits back from file
-			vector<bool> bits_from_file = BinaryFile::ReadFromFile(to_decompress);
+			vector<string>* encoder;
+			/* Get bits and map back from file */
+			vector<bool> bits_from_file = BinaryFile::ReadFromFile(to_decompress, &encoder);
 
-			//PA #2: read map from file
-			vector<string> encoder_from_file = HuffmanEncoder::readEncodingMapFromFile(file_name + ".pa2m");
+			/* Convert file bits back into text */
+			string text = HuffmanEncoder::decodeBits(bits_from_file, *encoder);
 
-			//PA #2: convert file bits back into text
-			string text = HuffmanEncoder::decodeBits(bits_from_file, encoder_from_file);
-
-			//PA #2: write decompressed back to file
-			ofstream output_file{ extract_location };
+			/* rite decompressed back to file */
+			string outputFileName = string(argv[2]);
+			/* Delete .hez extension */
+			outputFileName = outputFileName.substr(0, outputFileName.size()-4);
+			ofstream output_file(outputFileName);
 			output_file << text;
 			output_file.close();
 		}
-		else
-		{
+		else {
 			outputUsage();
 			return 0;
 		}

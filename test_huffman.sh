@@ -1,48 +1,36 @@
 #!/bin/bash
 
-./a.out compress pin/savio.txt
-./a.out decompress pin/savio.pa2c pin/savio1.txt
+#cp pin/savio.txt savio.txt.orig
+#./a.out compress pin/savio.txt
+#ls pin/savio.txt.hez
+#./a.out decompress pin/savio.txt.hez
+#echo ""
+#echo "md5sum comparisons:"
+#md5sum savio.txt.orig
+#md5sum pin/savio.txt
+#echo ""
+#echo "stat comparisons:"
+#stat savio.txt.orig
+#stat pin/savio.txt
+#
+#rm -rf pin/savio.txt
+#mv savio.txt.orig pin/savio.txt
+
+cp t1.txt t1.txt.orig
+./a.out compress t1.txt
+ls t1.txt.hez
+./a.out decompress t1.txt.hez
 echo ""
 echo "md5sum comparisons:"
-md5sum pin/savio.txt
-md5sum pin/savio1.txt
+md5sum t1.txt.orig
+md5sum t1.txt
 echo ""
 echo "stat comparisons:"
-stat pin/savio.txt
-stat pin/savio1.txt
+stat t1.txt.orig
+stat t1.txt
 
-#./a.out compress pin/t.txt
-#./a.out decompress pin/t.pa2c pin/t1.txt
-#echo ""
-#echo "md5sum comparisons:"
-#md5sum pin/t.txt
-#md5sum pin/t1.txt
-#echo ""
-#echo "stat comparisons:"
-#stat pin/t.txt
-#stat pin/t1.txt
+rm -rf t1.txt
+mv t1.txt.orig t1.txt
 
-#./a.out compress pin/kennedy.txt
-#./a.out decompress pin/kennedy.pa2c pin/kennedy1.txt
-#echo ""
-#echo "md5sum comparisons:"
-#md5sum pin/kennedy.txt
-#md5sum pin/kennedy1.txt
-#echo ""
-#echo "stat comparisons:"
-#stat pin/kennedy.txt
-#stat pin/kennedy1.txt
-
-#./a.out compress pin/test.txt
-#./a.out decompress pin/test.pa2c pin/test1.txt
-#echo ""
-#echo "md5sum comparisons:"
-#md5sum pin/test.txt
-#md5sum pin/test1.txt
-#echo ""
-#echo "stat comparisons:"
-#stat pin/test.txt
-#stat pin/test1.txt
-
-#./a.out pin/savio.txt
+#./a.out pin/t1.txt
 #./a.out pin/kennedy.txt
