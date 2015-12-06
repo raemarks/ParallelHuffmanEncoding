@@ -53,12 +53,7 @@ class HuffmanTree
 			else if (n->IsLeaf()) {
 				HuffmanLeafNode *ln = (HuffmanLeafNode*) n;
 
-				if (ln->GetValue() == '\n')
-					printf("ln:\\n");
-				else if (ln->GetValue() == '\r')
-					printf("ln:\\r");
-				else
-					printf("ln:%c", ln->GetValue());
+				printf("ln:%d", (int)ln->GetValue());
 			}
 			else {
 				printf("in");

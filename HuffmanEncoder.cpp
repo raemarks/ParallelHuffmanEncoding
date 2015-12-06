@@ -51,7 +51,10 @@ HuffmanEncoder::huffmanTreeFromText(vector<string> data)
 		string s = *it;
 		for (auto i = s.begin(); i != s.end(); ++i) {
 			if ((int) *i < 0) {
-				printf("Less than 0 in freq map!!\n");
+				//printf("Less than 0 in freq map!!\n");
+			}
+			if (*i == 1) {
+				printf("Got 1!\n");
 			}
 			freqMap[*i]++;
 		}
@@ -66,7 +69,7 @@ HuffmanEncoder::huffmanTreeFromText(vector<string> data)
 		forest.push(tree);
 	}
 
-	while (forest.size() > 1) {
+	while (forest.size() >= 1) {
 		HuffmanTree *smallest = forest.top();
 		forest.pop();
 		HuffmanTree *secondSmallest = forest.top();
@@ -281,6 +284,7 @@ HuffmanEncoder::decodeBits(vector<bool> bits, vector<string> huffmanMap)
 	ostringstream result{};
 	char last_char = 0;
 	uint64_t last_index = 0;
+	string stack;
 
 	printf("Tree:\n");
 	tree->Print();
@@ -292,18 +296,21 @@ HuffmanEncoder::decodeBits(vector<bool> bits, vector<string> huffmanMap)
 			printf("NULL!\n"); exit(1);
 		}
 		if (bit == false) {
+			stack += "0";
 			n = ((HuffmanInternalNode*)n)->GetLeftChild();
 		}
 		else {
+			stack += "1";
 			n = ((HuffmanInternalNode*)n)->GetRightChild();
 		}
 		if (n == NULL) {
-			printf("N was null! Last char: %c at index %ld\n", last_char, last_index);
+			printf("N was null! Last char: %c at index %ld, stack = %s\n", last_char, last_index, stack.c_str());
 		}
 		if (n->IsLeaf()) {
 			result << ((HuffmanLeafNode*)n)->GetValue();
 			last_char =  ((HuffmanLeafNode*)n)->GetValue();
 			n = tree->GetRoot();
+			stack = "";
 		}
 		last_index++;
 	}
