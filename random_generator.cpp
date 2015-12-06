@@ -17,7 +17,7 @@ fill_buffer(int size, char *buf)
 	srand(time(NULL));
 
 	for (int i = 0; i < size; i++) {
-		buf[i] = (char) (rand() % 256);
+		buf[i] = (char) (rand() % 10);
 	}
 }
 

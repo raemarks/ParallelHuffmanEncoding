@@ -54,7 +54,7 @@ HuffmanEncoder::huffmanTreeFromText(vector<string> data)
 				//printf("Less than 0 in freq map!!\n");
 			}
 			if (*i == 1) {
-				printf("Got 1!\n");
+				//printf("Got 1!\n");
 			}
 			freqMap[*i]++;
 		}
@@ -191,7 +191,7 @@ HuffmanEncoder::writeEncodingMapToFile(vector<string> huffmanMap, string file_na
 
 	ofstream outFile(file_name.c_str(), ofstream::binary);
 
-	for (int i = 0; i < huffmanMap.size() - 2; i++) {
+	for (unsigned int i = 0; i < huffmanMap.size() - 2; i++) {
 		outFile << i << " : " << huffmanMap[i] << endl;
 	}
 	outFile << "Length of codes: " << huffmanMap[256] << endl;
@@ -278,21 +278,20 @@ HuffmanEncoder::readEncodingMapFromFile(string file_name)
 HuffmanEncoder::decodeBits(vector<bool> bits, vector<string> huffmanMap)
 {
 	HuffmanTree *tree = HuffmanEncoder::huffmanTreeFromMap(huffmanMap);
+
+	vector<string> map = HuffmanEncoder::huffmanEncodingMapFromTree(tree);
+	HuffmanEncoder::writeEncodingMapToFile(map, "encmap.map");
+
 	HuffmanNode *n = tree->GetRoot();
 	ostringstream result{};
-	char last_char = 0;
 	uint64_t last_index = 0;
 	string stack;
+	int num_decoded = 0;
 
-	printf("Tree:\n");
-	tree->Print();
-
+	//tree->Print();
 
 	for (auto it = bits.begin(); it != bits.end(); ++it) {
 		bool bit = *it;
-		if (n == NULL) {
-			printf("NULL!\n"); exit(1);
-		}
 		if (bit == false) {
 			stack += "0";
 			n = ((HuffmanInternalNode*)n)->GetLeftChild();
@@ -301,17 +300,15 @@ HuffmanEncoder::decodeBits(vector<bool> bits, vector<string> huffmanMap)
 			stack += "1";
 			n = ((HuffmanInternalNode*)n)->GetRightChild();
 		}
-		if (n == NULL) {
-			printf("N was null! Last char: %c at index %ld, stack = %s\n", last_char, last_index, stack.c_str());
-		}
 		if (n->IsLeaf()) {
 			result << ((HuffmanLeafNode*)n)->GetValue();
-			last_char =  ((HuffmanLeafNode*)n)->GetValue();
+			num_decoded++;
 			n = tree->GetRoot();
 			stack = "";
 		}
 		last_index++;
 	}
+
 
 	return result.str();
 }
@@ -320,12 +317,15 @@ HuffmanEncoder::decodeBits(vector<bool> bits, vector<string> huffmanMap)
 HuffmanEncoder::toBinary(vector<string> text, vector<string> huffmanMap)
 {
 	vector<bool> result;
+	int num_encoded = 0;
 
 	for (auto it = text.begin(); it != text.end(); ++it) {
 		string s = *it;
 
 		for (auto it2 = s.begin(); it2 != s.end(); ++it2) {
 			char c = *it2;
+			num_encoded++;
+
 			string code = huffmanMap[(int)((unsigned char)c)];
 
 			for (auto it3 = code.begin(); it3 != code.end(); ++it3) {
@@ -334,6 +334,7 @@ HuffmanEncoder::toBinary(vector<string> text, vector<string> huffmanMap)
 			}
 		}
 	}
+
 
 	return result;
 }

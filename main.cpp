@@ -17,6 +17,7 @@ static vector<string> readFile(string input_file_name)
 	vector<string> result;
 	int fd = open(input_file_name.c_str(), O_RDONLY);
 	int n;
+	int total = 0;
 	char buf[4096];
 
 	if (fd < 0) {
@@ -25,7 +26,13 @@ static vector<string> readFile(string input_file_name)
 	}
 
 	while ((n = read(fd, buf, 4096)) != 0) {
-		result.push_back((string(buf)).substr(0, n));
+		total += n;
+		result.push_back(string(buf, n));
+	}
+
+	total = 0;
+	for (auto it = result.begin(); it != result.end(); ++it) {
+		total += it->size();
 	}
 	return result;
 }
@@ -62,7 +69,6 @@ int main(int argc, char* argv[])
 
 			vector<string> encoder = HuffmanEncoder::huffmanEncodingMapFromTree(coding_tree);
 
-			HuffmanEncoder::writeEncodingMapToFile(encoder, to_compress + ".map");
 			vector<bool> raw_stream = HuffmanEncoder::toBinary(file_contents, encoder);
 
 			string output_file_name = string(to_compress) + ".hez";
@@ -71,7 +77,7 @@ int main(int argc, char* argv[])
 			delete coding_tree;
 		}
 		else if (string(argv[1]) == "decompress") {
-			cout << "Decompressing " << argv[1] << "..." << endl;
+			cout << "Decompressing " << argv[2] << "..." << endl;
 
 			string to_decompress = argv[2];
 
@@ -86,7 +92,6 @@ int main(int argc, char* argv[])
 			vector<string>* encoder;
 			/* Get bits and map back from file */
 			vector<bool> bits_from_file = BinaryFile::ReadFromFile(to_decompress, &encoder);
-
 			/* Convert file bits back into text */
 			string text = HuffmanEncoder::decodeBits(bits_from_file, *encoder);
 

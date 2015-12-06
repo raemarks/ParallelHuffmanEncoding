@@ -39,7 +39,7 @@ writeEncodingMapToFile(const vector<string>& huffmanMap, ofstream& out)
 	toWrite = malloc(size);
 	memset(toWrite, 0, size);
 
-	for (int i = 4; i < 256; i++) {
+	for (int i = 0; i < 256; i++) {
 		/* Write at appropriate spot in array */
 		index = i*2;
 		string code = huffmanMap[i];
@@ -96,7 +96,7 @@ BinaryFile::WriteToFile(const vector<bool> &content, const string &output_file_n
 {
 	ofstream output_file(output_file_name.c_str());
 	//ofstream output_file(output_file_name.c_str(), ofstream::binary);
-	
+
 	if (!output_file.good()) {
 		printf("Could not open output file for writing!\n");
 		exit (1);
