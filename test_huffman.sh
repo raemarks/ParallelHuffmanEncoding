@@ -18,19 +18,19 @@
 
 cp t1.txt t1.txt.orig
 ./a.out compress t1.txt
-ls t1.txt.hez
-./a.out decompress t1.txt.hez
-echo ""
-echo "md5sum comparisons:"
-md5sum t1.txt.orig
-md5sum t1.txt
-echo ""
-echo "stat comparisons:"
-stat t1.txt.orig
-stat t1.txt
-
-rm -rf t1.txt
-mv t1.txt.orig t1.txt
+#ls t1.txt.hez
+#./a.out decompress t1.txt.hez
+#echo ""
+#echo "md5sum comparisons:"
+#md5sum t1.txt.orig
+#md5sum t1.txt
+#echo ""
+#echo "stat comparisons:"
+#stat t1.txt.orig
+#stat t1.txt
+#
+#rm -rf t1.txt
+#mv t1.txt.orig t1.txt
 
 #./a.out pin/t1.txt
 #./a.out pin/kennedy.txt

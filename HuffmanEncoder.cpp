@@ -60,16 +60,14 @@ HuffmanEncoder::huffmanTreeFromText(vector<string> data)
 		}
 	}
 
-	priority_queue<HuffmanTree *,
-		vector<HuffmanTree*>,
-		HuffmanTreeCompare> forest;
+	priority_queue<HuffmanTree*,vector<HuffmanTree*>,HuffmanTreeCompare> forest{};
 
 	for (auto it = freqMap.begin(); it != freqMap.end(); it++) {
 		HuffmanTree *tree = new HuffmanTree(it->first, it->second);
 		forest.push(tree);
 	}
 
-	while (forest.size() >= 1) {
+	while (forest.size() > 1) {
 		HuffmanTree *smallest = forest.top();
 		forest.pop();
 		HuffmanTree *secondSmallest = forest.top();
