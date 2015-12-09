@@ -34,9 +34,9 @@ stat inputs/t1.txt
 echo ""
 echo "STAT OF COMPRESSED FILE:"
 stat inputs/t1.txt.hez
-#
-#rm -rf inputs/t1.txt inputs/t1.txt.hez
-#mv inputs/t1.txt.orig inputs/t1.txt
+
+rm -rf inputs/t1.txt inputs/t1.txt.hez
+mv inputs/t1.txt.orig inputs/t1.txt
 
 #./a.out pin/t1.txt
 #./a.out pin/kennedy.txt

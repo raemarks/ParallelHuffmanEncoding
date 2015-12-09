@@ -1,6 +1,8 @@
 #ifndef HUFFMAN_TREE_H
 #define HUFFMAN_TREE_H
 
+#include <stdint.h>
+
 #include "HuffmanInternalNode.h"
 #include "HuffmanLeafNode.h"
 class HuffmanTree
@@ -62,7 +64,7 @@ class HuffmanTree
 
 
 	public:
-		HuffmanTree(const char value, const int weight)
+		HuffmanTree(const char value, const uint64_t weight)
 		{
 			_root = new HuffmanLeafNode(value, weight);
 		}
@@ -112,7 +114,7 @@ class HuffmanTree
 			}
 		}
 
-		int GetWeight()
+		uint64_t GetWeight()
 		{
 			return _root->GetWeight();
 		}

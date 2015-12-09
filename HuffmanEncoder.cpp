@@ -49,7 +49,7 @@ void printChar(char c)
 	printf("%d", (int) c);
 }
 
-static uint64_t
+	static uint64_t
 calculateMetaDataSize(const vector<string>& huffmanMap)
 {
 	int size;
@@ -73,7 +73,7 @@ calculateMetaDataSize(const vector<string>& huffmanMap)
 		len = 64;
 	}
 	else {
-		printf("Length not correct. Length = %d\n", length);
+		printf("Length not correct in calculate size. Length = %d\n", length);
 		exit(1);
 	}
 
@@ -84,14 +84,16 @@ calculateMetaDataSize(const vector<string>& huffmanMap)
  * Bytes are oadded out to a full byte with zeros at the end of each chunk
  * in the case that the compressed chunk has a bit count that is not
  * divisible by 8. */
-int
+	int
 HuffmanEncoder::DecompressFileWithPadding(const string& filename)
 {
 	struct stat s;
-	if (stat(filename.c_str(),&s) < 0) {
+	int fd = open(filename.c_str(), O_RDONLY);
+	if (fstat(fd,&s) < 0) {
 		printf("Couldn't stat file, exiting.\n");
 		exit(1);
 	}
+	close(fd);
 
 	FILE *inputFile = fopen(filename.c_str(), "r");
 	vector<string>* huffmanMap;
@@ -165,13 +167,16 @@ HuffmanEncoder::CompressFileWithPadding(int divisions, const string& filename)
 	 * more on that later for experimentation */
 	/* Stat the file. */
 	struct stat s;
-	if (stat(filename.c_str(),&s) < 0) {
+	int fd = open(filename.c_str(), O_RDONLY);
+	if (fstat(fd,&s) < 0) {
 		printf("Couldn't stat file, exiting.\n");
 		exit(1);
 	}
+	close(fd);
 
-	/* Multicast this, or have everybody stat the file? */
 	uint64_t fileLength = (uint64_t)s.st_size;
+	printf("%s %ld %ld\n", filename.c_str(), s.st_ino, s.st_size);
+	printf("File length: %ld\n", s.st_size);
 	ndivisions = (uint32_t)p;
 	offsets = (uint64_t*) malloc (sizeof(uint64_t)*p);
 	chunkLengths = (uint64_t*) malloc (sizeof(uint64_t)*p);
@@ -179,18 +184,21 @@ HuffmanEncoder::CompressFileWithPadding(int divisions, const string& filename)
 	if (mpirank == 0) printf("%d: Setting offsets\n", mpirank);
 	for (int i = 0; i < p; i++) {
 		offsets[i] = i*(fileLength/p);
-		printf("My rank: %d, my offset: %ld\n", mpirank, offsets[i]);
+		if (i == mpirank)
+			printf("My rank: %d, my offset: %ld\n", mpirank, offsets[i]);
 	}
 	for (int i = 0; i < p; i++) {
 		if (i == p-1)
 			chunkLengths[i] = ceil(fileLength/p);
 		else
 			chunkLengths[i] = fileLength/p;
-		printf("My rank: %d, my chunkLength: %ld\n", mpirank, chunkLengths[i]);
+		if (i == mpirank)
+			printf("My rank: %d, my chunkLength: %ld\n", mpirank, chunkLengths[i]);
 	}
 
-	printf("%d: Reading file\n", mpirank);
-	vector<char> text = readFile(filename, chunkLengths[mpirank], offsets[0]);
+	printf("%d: Reading file at offset %ld with chunk size %ld\n", mpirank,
+			offsets[mpirank], chunkLengths[mpirank]);
+	vector<char> text = readFile(filename, chunkLengths[mpirank], offsets[mpirank]);
 	printf("%d: read file!\n", mpirank);
 
 	HuffmanTree *coding_tree = HuffmanEncoder::huffmanTreeFromText(text);
@@ -293,14 +301,40 @@ HuffmanEncoder::huffmanTreeFromText(vector<char> data)
 	//Builds a Huffman Tree from the supplied vector of strings.
 	//This function implement's Huffman's Algorithm as specified in page
 	//456 of the book.
-	int freqMap[256];
-	memset(freqMap, 0, 256);
+	uint64_t myFreqMap[256], globalFreqMap[256];
+	memset(myFreqMap, 0, 256);
 
 	for (auto it = data.begin(); it != data.end(); ++it) {
-		freqMap[(int)((unsigned char)*it)]++;
+		myFreqMap[(int)((unsigned char)*it)]++;
 	}
 
+	unordered_map<char, uint64_t> freqMap;
+	for (auto it = data.begin(); it != data.end(); ++it) {
+		freqMap[*it]++;
+	}
+
+	/* TODO: change all of these to uint64 since frequency might get crazy!! */
+	/* Get global frequencies so all nodes have same Huffman coding dictionaries
+	*/
+	/*
+	   int err = MPI_Allreduce(myFreqMap, globalFreqMap, 256, MPI_UINT64_T, MPI_SUM,
+	   MPI_COMM_WORLD);
+	   if (err) {
+	   printf("Problem with MPI all reduce. Exiting...\n");
+	   exit(1);
+	   }
+	   */
+
 	priority_queue<HuffmanTree*,vector<HuffmanTree*>,HuffmanTreeCompare> forest{};
+
+	for (int i = 0; i < 256; i++) {
+		if (myFreqMap[i] == 0) {
+			printf("It's zero!\n");
+			continue;
+		}
+		HuffmanTree *tree = new HuffmanTree((char)i, myFreqMap[i]);
+		forest.push(tree);
+	}
 
 	/*
 	for (auto it = freqMap.begin(); it != freqMap.end(); it++) {
@@ -308,10 +342,8 @@ HuffmanEncoder::huffmanTreeFromText(vector<char> data)
 		forest.push(tree);
 	}
 	*/
-	for (int i = 0; i < 256; i++) {
-		HuffmanTree *tree = new HuffmanTree((char)i, freqMap[i]);
-		forest.push(tree);
-	}
+
+	printf("%ld trees in forest, data size: %ld\n", forest.size(), data.size());
 
 	while (forest.size() > 1) {
 		HuffmanTree *smallest = forest.top();
