@@ -16,25 +16,27 @@
 #rm -rf pin/savio.txt
 #mv savio.txt.orig pin/savio.txt
 
-cp t1.txt t1.txt.orig
-./a.out compress t1.txt
+p=1
+ 
+cp inputs/t1.txt inputs/t1.txt.orig
+mpiexec -machinefile ./machinefile4.txt -n $p ./a.out compress inputs/t1.txt
 echo "Finished"
-./a.out decompress t1.txt.hez
+mpiexec -machinefile ./machinefile4.txt -n $p ./a.out decompress inputs/t1.txt.hez
 echo "Finished"
 echo ""
 echo "MD5SUM COMPARISONS:"
-md5sum t1.txt.orig
-md5sum t1.txt
+md5sum inputs/t1.txt.orig
+md5sum inputs/t1.txt
 echo ""
 echo "STAT COMPARISONS:"
-stat t1.txt.orig
-stat t1.txt
+stat inputs/t1.txt.orig
+stat inputs/t1.txt
 echo ""
 echo "STAT OF COMPRESSED FILE:"
-stat t1.txt.hez
-
-rm -rf t1.txt t1.txt.hez
-mv t1.txt.orig t1.txt
+stat inputs/t1.txt.hez
+#
+#rm -rf inputs/t1.txt inputs/t1.txt.hez
+#mv inputs/t1.txt.orig inputs/t1.txt
 
 #./a.out pin/t1.txt
 #./a.out pin/kennedy.txt

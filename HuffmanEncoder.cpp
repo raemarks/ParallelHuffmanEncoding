@@ -1,11 +1,16 @@
 #include <string.h>
+#include <math.h>
 #include <cstdio>
 #include <stdint.h>
 #include <queue>
-#include "HuffmanEncoder.h"
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <cerrno>
+
+#include "CompressedFile.h"
+#include "HuffmanEncoder.h"
+#include "Constants.h"
 
 struct HuffmanTreeCompare {
 	bool operator()(HuffmanTree *a, HuffmanTree *b){
@@ -13,57 +18,298 @@ struct HuffmanTreeCompare {
 	}
 };
 
-#if 0
-static vector<string>
-readFile(string input_file_name)
+static vector<char> readFile(string input_file_name, uint64_t toRead,
+		uint64_t offset)
 {
-	vector<string> result;
-	int fd = open(input_file_name.c_str(), O_RDONLY);
+	vector<char> result;
+	FILE *f = fopen(input_file_name.c_str(), "r");
 	int n;
-	char buf[4096];
+	uint64_t total = 0;
+	char c;
 
-	if (fd < 0) {
+	fseek(f, offset, 0);
+
+	if (f == NULL) {
 		printf("Couldn't open file for reading\n");
 		exit(1);
 	}
 
-	while ((n = read(fd, buf, 4096)) != 0) {
-		result.push_back((string(buf)).substr(0, n));
+	while ((n = fread(&c, 1, 1, f)) != 0 && total < toRead) {
+		total += n;
+		result.push_back(c);
 	}
+
+	total = 0;
+
 	return result;
 }
-#endif
 
 void printChar(char c)
 {
 	printf("%d", (int) c);
 }
 
+static uint64_t
+calculateMetaDataSize(const vector<string>& huffmanMap)
+{
+	int size;
+	int len;
+	int length = stoi(huffmanMap[256]);
+
+	if (length <= 8) {
+		size = 512*sizeof(uint8_t);
+		len = 8;
+	}
+	else if (length <= 16) {
+		size = 512*sizeof(uint16_t);
+		len = 16;
+	}
+	else if (length <= 32) {
+		size = 512*sizeof(uint32_t);
+		len = 32;
+	}
+	else if (length <= 64) {
+		size = 512*sizeof(uint64_t);
+		len = 64;
+	}
+	else {
+		printf("Length not correct. Length = %d\n", length);
+		exit(1);
+	}
+
+	return size + sizeof(ndivisions) + ndivisions*sizeof(uint64_t) + sizeof(len);
+}
+
+/* Decompress the file with the number of divisions indicated by file.
+ * Bytes are oadded out to a full byte with zeros at the end of each chunk
+ * in the case that the compressed chunk has a bit count that is not
+ * divisible by 8. */
+int
+HuffmanEncoder::DecompressFileWithPadding(const string& filename)
+{
+	struct stat s;
+	if (stat(filename.c_str(),&s) < 0) {
+		printf("Couldn't stat file, exiting.\n");
+		exit(1);
+	}
+
+	FILE *inputFile = fopen(filename.c_str(), "r");
+	vector<string>* huffmanMap;
+
+	CompressedFile::ReadMetadataFromFile(inputFile, &huffmanMap);
+
+	vector<bool> compressedData = CompressedFile::ReadFromFile(inputFile,
+			offsets[mpirank]);
+	fclose(inputFile);
+
+	string text = HuffmanEncoder::decodeBits(compressedData, *huffmanMap);
+
+	/* Length in bytes of uncompressed data */
+	uint64_t lengthToWrite = text.size();
+	uint64_t offset = 0;
+
+	/* Delete .hez extension */
+	string output_filename = filename.substr(0, filename.size()-4);
+
+	if (mpirank == 0) {
+		int fd = creat(output_filename.c_str(), 0664);
+		if (fd < 0) {
+			printf("%d: Couldn't create output file %s\n", mpirank, output_filename.c_str());
+			exit(1);
+		}
+		close(fd);
+	}
+
+	/* Parallel prefix to determine where to start writing uncompressed data in
+	 * the file */
+	int err = MPI_Scan(&lengthToWrite, &offset, 1, MPI_UINT64_T, MPI_SUM,
+			MPI_COMM_WORLD);
+	if (err) {
+		printf("MPI_Scan failed!\n");
+		return err;
+	}
+
+	if (mpirank == p-1) {
+		/* Last rank knows how big the final file is, so it will take care of
+		 * allocating it. Here, offset is the total length of the uncompressed
+		 * file. */
+		err = truncate(output_filename.c_str(), offset);
+		if (err) {
+			printf("Issue with truncate. Error: %s\n", strerror(errno));
+			exit (1);
+		}
+	}
+	/* Make sure file is truncated first. */
+	MPI_Barrier(MPI_COMM_WORLD);
+	FILE *outputFile = fopen(output_filename.c_str(), "r+");
+	printf("Decompressing %s to %s\n", filename.c_str(), output_filename.c_str());
+	/* Adjust so we write at the beginning of the chunk, not the end */
+	offset -= lengthToWrite;
+
+	fseek(outputFile, offset, 0);
+	fwrite(text.c_str(), 1, lengthToWrite, outputFile);
+	fclose(outputFile);
+
+	return 0;
+}
+
+/* Compress the file with the number of divisions indicated by the input
+ * parameter. Pad out to a full byte with zeros at the end of each chunk to
+ * compress in the case that the compressed chunk has a bit count that is not
+ * divisible by 8. */
+	int
+HuffmanEncoder::CompressFileWithPadding(int divisions, const string& filename)
+{
+	/* TODO:
+	 * Initially, do a check to see if p = ndivisions. At first, just pass in p.
+	 * more on that later for experimentation */
+	/* Stat the file. */
+	struct stat s;
+	if (stat(filename.c_str(),&s) < 0) {
+		printf("Couldn't stat file, exiting.\n");
+		exit(1);
+	}
+
+	/* Multicast this, or have everybody stat the file? */
+	uint64_t fileLength = (uint64_t)s.st_size;
+	ndivisions = (uint32_t)p;
+	offsets = (uint64_t*) malloc (sizeof(uint64_t)*p);
+	chunkLengths = (uint64_t*) malloc (sizeof(uint64_t)*p);
+
+	if (mpirank == 0) printf("%d: Setting offsets\n", mpirank);
+	for (int i = 0; i < p; i++) {
+		offsets[i] = i*(fileLength/p);
+		printf("My rank: %d, my offset: %ld\n", mpirank, offsets[i]);
+	}
+	for (int i = 0; i < p; i++) {
+		if (i == p-1)
+			chunkLengths[i] = ceil(fileLength/p);
+		else
+			chunkLengths[i] = fileLength/p;
+		printf("My rank: %d, my chunkLength: %ld\n", mpirank, chunkLengths[i]);
+	}
+
+	printf("%d: Reading file\n", mpirank);
+	vector<char> text = readFile(filename, chunkLengths[mpirank], offsets[0]);
+	printf("%d: read file!\n", mpirank);
+
+	HuffmanTree *coding_tree = HuffmanEncoder::huffmanTreeFromText(text);
+
+	vector<string> encoder = HuffmanEncoder::huffmanEncodingMapFromTree(coding_tree);
+
+	vector<bool> raw_stream = HuffmanEncoder::toBinary(text, encoder);
+
+	string output_file_name = filename + ".hez";
+
+	/* Length in bytes of compressed data */
+	uint64_t lengthToWrite = ceil(raw_stream.size()/8);
+	/* Leave room to print length of chunk */
+	lengthToWrite += sizeof(size_t);
+	uint64_t offset = 0;
+	metadataOffset = calculateMetaDataSize(encoder);
+
+	/* Parallel prefix to determine where to start writing uncompressed data in
+	 * the file */
+
+	if (mpirank == 0) {
+		int fd = creat(output_file_name.c_str(), 0664);
+		if (fd < 0) {
+			printf("%d: Couldn't create output file %s\n", mpirank, output_file_name.c_str());
+			exit(1);
+		}
+		close(fd);
+	}
+
+
+	printf("%d: Calling MPI scan...\n", mpirank);
+	int err = MPI_Scan(&lengthToWrite, &offset, 1, MPI_UINT64_T, MPI_SUM,
+			MPI_COMM_WORLD);
+	if (err) {
+		printf("MPI_Scan failed!\n");
+		return err;
+	}
+	printf("%d: Finished MPI scan...\n", mpirank);
+
+	if (mpirank == p-1) {
+		/* Last rank knows how big the final file is, so it will take care of
+		 * allocating it. Here, offset is the total length of the compressed
+		 * file. */
+		printf("Truncating...\n");
+		err = truncate(output_file_name.c_str(), offset + metadataOffset);
+		printf("Truncated...\n");
+		/* TODO: Don't forget to allocate space for the metadata!!! */
+		if (err) {
+			printf("Issue with truncate. Error: %s\n", strerror(errno));
+			return (1);
+		}
+	}
+	/* Make sure file is truncated first. */
+	MPI_Barrier(MPI_COMM_WORLD);
+
+	FILE *output_file = fopen(output_file_name.c_str(), "r+");
+	printf("Compressing %s to %s\n", filename.c_str(), output_file_name.c_str());
+	if(output_file == NULL) {
+		printf("%d: Couldn't open output_file %s!!!\n", mpirank, output_file_name.c_str());
+		exit(1);
+	}
+
+	/* Adjust so we write at the beginning of the chunk, not the end */
+	offset -= lengthToWrite;
+	/* Adjust for metadata so we get absolute offset from beginning of file */
+	offset += metadataOffset;
+
+	/* Gather offsets from all files for metadata writing */
+	printf("%d: Gathering offsets...\n", mpirank);
+	err = MPI_Gather(&offset, 1, MPI_UINT64_T, offsets, 1, MPI_UINT64_T, 0,
+			MPI_COMM_WORLD);
+	printf("%d: Gathered offsets...\n", mpirank);
+
+	if (mpirank == 0) {
+		printf("%d: Writing metadata!\n", mpirank);
+		CompressedFile::WriteMetadataToFile(output_file, encoder);
+	}
+
+	printf("%d: Writing my chunk to the file!\n", mpirank);
+	CompressedFile::WriteToFile(output_file, raw_stream, offset);
+	printf("%d: Wrote my chunk to the file!\n", mpirank);
+	fclose(output_file);
+
+	return 0;
+}
+
+/* Compress the file with the number of divisions indicated by the input
+ * parameter. Do not pad out to a full byte at the end of each chunk to
+ * compress in the case that the compressed chunk has a bit count that is not
+ * divisible by 8. */
+	int
+HuffmanEncoder::CompressFileWithoutPadding(int divisions, const string& filename)
+{
+	return 0;
+}
+
 	HuffmanTree*
-HuffmanEncoder::huffmanTreeFromText(vector<string> data)
+HuffmanEncoder::huffmanTreeFromText(vector<char> data)
 {
 	//Builds a Huffman Tree from the supplied vector of strings.
 	//This function implement's Huffman's Algorithm as specified in page
 	//456 of the book.
-	unordered_map<char, int> freqMap;
+	int freqMap[256];
+	memset(freqMap, 0, 256);
 
 	for (auto it = data.begin(); it != data.end(); ++it) {
-		string s = *it;
-		for (auto i = s.begin(); i != s.end(); ++i) {
-			if ((int) *i < 0) {
-				//printf("Less than 0 in freq map!!\n");
-			}
-			if (*i == 1) {
-				//printf("Got 1!\n");
-			}
-			freqMap[*i]++;
-		}
+		freqMap[(int)((unsigned char)*it)]++;
 	}
 
 	priority_queue<HuffmanTree*,vector<HuffmanTree*>,HuffmanTreeCompare> forest{};
 
+	/*
 	for (auto it = freqMap.begin(); it != freqMap.end(); it++) {
 		HuffmanTree *tree = new HuffmanTree(it->first, it->second);
+		forest.push(tree);
+	}
+	*/
+	for (int i = 0; i < 256; i++) {
+		HuffmanTree *tree = new HuffmanTree((char)i, freqMap[i]);
 		forest.push(tree);
 	}
 
@@ -214,7 +460,7 @@ HuffmanEncoder::readEncodingMapFromFile(string file_name)
 		printf("Couldn't open map file for reading! \n");
 		exit(1);
 	}
-	inFile.read((char*)(&len), (int)sizeof(int));
+	inFile.read((char*)(&len), (int)sizeof(uint32_t));
 
 	switch(len) {
 		case 8:
@@ -314,24 +560,20 @@ HuffmanEncoder::decodeBits(vector<bool> bits, vector<string> huffmanMap)
 }
 
 	vector<bool>
-HuffmanEncoder::toBinary(vector<string> text, vector<string> huffmanMap)
+HuffmanEncoder::toBinary(vector<char> text, vector<string> huffmanMap)
 {
 	vector<bool> result;
 	int num_encoded = 0;
 
 	for (auto it = text.begin(); it != text.end(); ++it) {
-		string s = *it;
+		char c = *it;
+		num_encoded++;
 
-		for (auto it2 = s.begin(); it2 != s.end(); ++it2) {
-			char c = *it2;
-			num_encoded++;
+		string code = huffmanMap[(int)((unsigned char)c)];
 
-			string code = huffmanMap[(int)((unsigned char)c)];
-
-			for (auto it3 = code.begin(); it3 != code.end(); ++it3) {
-				char b = *it3;
-				result.push_back(b == '1');
-			}
+		for (auto it2 = code.begin(); it2 != code.end(); ++it2) {
+			char b = *it2;
+			result.push_back(b == '1');
 		}
 	}
 

@@ -7,35 +7,52 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <mpi.h>
+#include <stdint.h>
 
 #include "HuffmanEncoder.h"
 #include "HuffmanTree.h"
-#include "BinaryFile.h"
+#include "CompressedFile.h"
+#include "Constants.h"
 
-static vector<string> readFile(string input_file_name)
+int p;
+int mpirank;
+uint32_t ndivisions;
+uint32_t metadataOffset;
+uint64_t *offsets;
+uint64_t *chunkLengths;
+
+#if 0
+static vector<char> readFile(string input_file_name, uint64_t toRead,
+		uint64_t offset)
 {
-	vector<string> result;
-	int fd = open(input_file_name.c_str(), O_RDONLY);
+	vector<char> result;
+	FILE *f = fopen(input_file_name.c_str(), "r");
 	int n;
-	int total = 0;
-	char buf[4096];
+	uint64_t total = 0;
+	char c;
 
-	if (fd < 0) {
+	if (f == NULL) {
 		printf("Couldn't open file for reading\n");
 		exit(1);
 	}
 
-	while ((n = read(fd, buf, 4096)) != 0) {
+	p = 1;
+	ndivisions = 1;
+	offsets = (uint64_t*) malloc(ndivisions*sizeof(uint64_t));
+	offsets[0] = 0;
+
+
+	while ((n = fread(&c, 1, 1, f)) != 0 && total < toRead) {
 		total += n;
-		result.push_back(string(buf, n));
+		result.push_back(c);
 	}
 
 	total = 0;
-	for (auto it = result.begin(); it != result.end(); ++it) {
-		total += it->size();
-	}
+
 	return result;
 }
+#endif
 
 //outputs HuffmanEncoder exe usage
 void outputUsage()
@@ -49,32 +66,36 @@ void outputUsage()
 
 int main(int argc, char* argv[])
 {
-	//calling for unit tests?
+	MPI_Init(&argc,&argv);
+	MPI_Comm_rank(MPI_COMM_WORLD,&mpirank);
+	MPI_Comm_size(MPI_COMM_WORLD,&p);
+
+	ndivisions = p;
+
 	if (argc == 2)
 	{
 		if (string(argv[1]) == "test")
 		{
+			MPI_Finalize();
 			return 0;
 		}
 		outputUsage();
+		MPI_Finalize();
 		return 0;
 	}
 	else if(argc == 3) {
 		if (string(argv[1]) == "compress") {
 			string to_compress = string(argv[2]);
 			cout << "Compressing file " << to_compress << "..." << endl;
-			vector<string> file_contents = readFile(to_compress);
 
-			HuffmanTree *coding_tree = HuffmanEncoder::huffmanTreeFromText(file_contents);
+			struct stat s;
+			if (stat(to_compress.c_str(),&s) < 0) {
+				printf("Couldn't stat file, exiting.\n");
+				exit(1);
+			}
 
-			vector<string> encoder = HuffmanEncoder::huffmanEncodingMapFromTree(coding_tree);
+			HuffmanEncoder::CompressFileWithPadding(p, to_compress);
 
-			vector<bool> raw_stream = HuffmanEncoder::toBinary(file_contents, encoder);
-
-			string output_file_name = string(to_compress) + ".hez";
-			BinaryFile::WriteToFile(raw_stream, output_file_name, encoder);
-
-			delete coding_tree;
 		}
 		else if (string(argv[1]) == "decompress") {
 			cout << "Decompressing " << argv[2] << "..." << endl;
@@ -85,32 +106,26 @@ int main(int argc, char* argv[])
 			if (to_decompress.size() < 5 ||
 					to_decompress.substr(to_decompress.size()-4,4) != ".hez") {
 
-					printf("Extension mismatch, nothing to do\n");
-					return (1);
+				printf("Extension mismatch, nothing to do\n");
+				MPI_Finalize();
+				return (1);
 			}
 
-			vector<string>* encoder;
-			/* Get bits and map back from file */
-			vector<bool> bits_from_file = BinaryFile::ReadFromFile(to_decompress, &encoder);
-			/* Convert file bits back into text */
-			string text = HuffmanEncoder::decodeBits(bits_from_file, *encoder);
-
-			/* rite decompressed back to file */
-			string outputFileName = string(argv[2]);
-			/* Delete .hez extension */
-			outputFileName = outputFileName.substr(0, outputFileName.size()-4);
-			ofstream output_file(outputFileName);
-			output_file << text;
-			output_file.close();
+			HuffmanEncoder::DecompressFileWithPadding(to_decompress);
 		}
 		else {
 			outputUsage();
+			MPI_Finalize();
 			return 0;
 		}
 	}
 	else
 	{
 		outputUsage();
+		MPI_Finalize();
 		return 0;
 	}
+
+	MPI_Finalize();
+	return 0;
 }

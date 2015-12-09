@@ -2,8 +2,10 @@
 #include "CompressedFile.h"
 #include "Constants.h"
 
-void
-writeEncodingMapToFile(const vector<string>& huffmanMap, FILE *out)
+/* Serialize encoding map as well as division information */
+
+	void
+CompressedFile::WriteMetadataToFile(FILE *outputFile, const vector<string>& huffmanMap)
 {
 	/* The map will take up 2*alphabet size, so each character in the alphabet
 	 * gets 2 bytes, the 1st counts the number of bits in the code, and the 2nd
@@ -84,32 +86,25 @@ writeEncodingMapToFile(const vector<string>& huffmanMap, FILE *out)
 				break;
 		}
 	}
-	/* Write #bits needed to store the max code length */
-	fwrite((const char*)&len, sizeof(int), 1, out);
-	/* Write map */
-	fwrite((const void*)toWrite, 1, size, out);
-	free(toWrite);
-}
 
-void
-writeDvisionsToFile(FILE *out)
-{
-	/* TODO: make sure only proc 0 does this. */
 	printf("Writing divisions...\n");
-	fwrite((void*)&ndivisions, sizeof(uint32_t), 1, out);
-	fwrite((void*)offsets, sizeof(uint64_t), ndivisions, out);
+	fwrite((void*)&ndivisions, sizeof(uint32_t), 1, outputFile);
+	fwrite((void*)offsets, sizeof(uint64_t), ndivisions, outputFile);
 	printf("%d divisions\n", ndivisions);
+
+	/* Write #bits needed to store the max code length */
+	fwrite((const char*)&len, sizeof(int), 1, outputFile);
+	/* Write map */
+	fwrite((const void*)toWrite, 1, size, outputFile);
+	free(toWrite);
 }
 
 /* Offset is realtive to the beginning of the file, so the caller must make sure
  * to adjust for the metadata at the beginning of the file. */
-void
-CompressedFile::WriteToFile(const vector<bool> &content, FILE *output_file,
-		const vector<string>& huffmanMap)
+	void
+CompressedFile::WriteToFile(FILE *outputFile, const vector<bool> &content,
+		uint64_t offset)
 {
-	writeDvisionsToFile(output_file);
-	writeEncodingMapToFile(huffmanMap, output_file);
-
 	/* Keeps track of all of the chars that we will write to file */
 	vector<char> to_output{};
 
@@ -145,17 +140,20 @@ CompressedFile::WriteToFile(const vector<bool> &content, FILE *output_file,
 	/* Finally, write to file. The first entry indicates number of bits
 	 * that are contained within the file */
 	size_t num_bits = content.size();
-	fwrite((void *)&num_bits, sizeof(size_t), 1, output_file);
+	fseek(outputFile, offset, 0);
+	/* TODO: make sure the offsets account for this. Also make sure this gets
+	 * read! */
+	fwrite((void *)&num_bits, sizeof(size_t), 1, outputFile);
 
 	/* Now, write binary contents */
 	for (auto it = to_output.begin(); it != to_output.end(); it++) {
 		char item = *it;
-		fwrite(&item, sizeof(char), 1, output_file);
+		fwrite(&item, sizeof(char), 1, outputFile);
 	}
 }
 
 void
-readEncodingMapFromFile(vector<string>** huffmanMap, FILE *in)
+CompressedFile::ReadMetadataFromFile(FILE *inputFile, vector<string>** huffmanMap)
 {
 	void *toRead;
 	int length, size;
@@ -163,7 +161,13 @@ readEncodingMapFromFile(vector<string>** huffmanMap, FILE *in)
 	uint64_t c;
 	vector<string> *hm = new vector<string>(257);
 
-	fread((void*)(&len), sizeof(len), 1, in);
+	printf("Reading divisions...\n");
+	fread((void*)&ndivisions, sizeof(uint32_t), 1, inputFile);
+	offsets = (uint64_t*) malloc(sizeof(uint64_t)*ndivisions);
+	fread((void*)offsets, sizeof(uint64_t), ndivisions, inputFile);
+	printf("%d divisions\n", ndivisions);
+
+	fread((void*)(&len), sizeof(len), 1, inputFile);
 
 	switch(len) {
 		case 8:
@@ -184,7 +188,7 @@ readEncodingMapFromFile(vector<string>** huffmanMap, FILE *in)
 	}
 	toRead = malloc(size);
 
-	fread((void*)toRead, 1, size, in);
+	fread((void*)toRead, 1, size, inputFile);
 	for (unsigned int i = 0; i < 512; i+=2) {
 		switch(len) {
 			case 8:
@@ -222,42 +226,29 @@ readEncodingMapFromFile(vector<string>** huffmanMap, FILE *in)
 	*huffmanMap = hm;
 }
 
-void
-readDvisionsFromFile(FILE *in)
-{
-	/* TODO: make sure only proc 0 does this. */
-	printf("Reading divisions...\n");
-	fread((void*)&ndivisions, sizeof(uint32_t), 1, in);
-	offsets = (uint64_t*) malloc(sizeof(uint64_t)*ndivisions);
-	fread((void*)offsets, sizeof(uint64_t), ndivisions, in);
-	printf("%d divisions\n", ndivisions);
-}
-
 /* Reads a file written with WriteToFile into a vector of bools. Precondition:
- * input_file is open and good, and caller must close it. Offset is relative to
+ * inputFile is open and good, and caller must close it. Offset is relative to
  * the beginning of the file, so it must be adjusted not to write over the
  * metadata by the caller. */
-vector<bool>
-CompressedFile::ReadFromFile(FILE *input_file, vector<string>** huffmanMap, uint64_t offset)
+	vector<bool>
+CompressedFile::ReadFromFile(FILE *inputFile, uint64_t offset)
 {
 	vector<bool> result{};
 
-	readDvisionsFromFile(input_file);
-	readEncodingMapFromFile(huffmanMap, input_file);
-
 	/* Pick off number of bits to read */
 	size_t bits_to_read = 0;
-	fread((void *)&bits_to_read, sizeof(size_t), 1, input_file);
+	fseek(inputFile, offset, 0);
+	fread((void *)&bits_to_read, sizeof(size_t), 1, inputFile);
 
 	/* Now, pull in single chars */
 	char single_char = '\0';
 	size_t bits_read = 0;
 	for (unsigned int i = 0; i < bits_to_read; i += 8 * sizeof(char)) {
-		fread((void*)&single_char, sizeof(char), 1, input_file);
+		fread((void*)&single_char, sizeof(char), 1, inputFile);
 
 		for (unsigned int j = 0;
-		    j < 8 * sizeof(char) && bits_read < bits_to_read;
-		    j++) {
+				j < 8 * sizeof(char) && bits_read < bits_to_read;
+				j++) {
 			/* Peel off one char, then shift to get the next one
 			 * for the loop */
 			char bool_val = single_char >> 8 * sizeof(char);

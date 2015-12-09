@@ -12,20 +12,41 @@
 #include "BinaryFile.h"
 #include "StringSplitter.h"
 
-
 using namespace std;
+
+struct CompressedData {
+	uint64_t byteOffset;
+	uint64_t bitOffset;
+	uint64_t nbytes;
+	uint64_t nbits;
+	void *data;
+};
 
 class HuffmanEncoder
 {
 	public:
-		/* Finds the smallest tree in a given forest, allowing for
-		 * a single skip */
+
+	static int DecompressFileWithPadding(const string& filename);
+	/* Compress the file with the number of divisions indicated by the input
+	 * parameter. Pad out to a full byte with zeros at the end of each chunk to
+	 * compress in the case that the compressed chunk has a bit count that is not
+	 * divisible by 8. */
+	static int CompressFileWithPadding(int divisions, const string& filename);
+
+	/* Compress the file with the number of divisions indicated by the input
+	 * parameter. Do not pad out to a full byte at the end of each chunk to
+	 * compress in the case that the compressed chunk has a bit count that is not
+	 * divisible by 8. */
+	static int CompressFileWithoutPadding(int divisions, const string& filename);
+
+	/* Finds the smallest tree in a given forest, allowing for
+	 * a single skip */
 	static int
 		findSmallestTree(vector<HuffmanTree *>& forest, int index_to_ignore = -1);
 
 	/* Generates a Huffman character tree from the supplied
 	 * text */
-	static HuffmanTree *huffmanTreeFromText(vector<string> data);
+	static HuffmanTree *huffmanTreeFromText(vector<char> data);
 
 	/* Generates a Huffman character tree from the supplied
 	 * encoding map */
@@ -52,7 +73,7 @@ class HuffmanEncoder
 	/* Using the supplied Huffman map compression, converts the
 	 * supplied text into a series of bits (boolean values) */
 	static vector<bool>
-		toBinary(vector<string> text, vector<string> huffmanMap);
+		toBinary(vector<char> text, vector<string> huffmanMap);
 };
 
 #endif
