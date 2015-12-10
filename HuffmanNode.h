@@ -3,13 +3,13 @@
 
 class HuffmanNode {
 protected:
-	int _weight;
+	uint64_t _weight;
 public:
 
 	HuffmanNode() : _weight(0) {}
 
 	/* Gets weight of huffman node and children */
-	virtual int GetWeight()
+	virtual uint64_t GetWeight()
 	{
 		return _weight;
 	}

@@ -7,7 +7,7 @@ class HuffmanLeafNode : public HuffmanNode
 private:
 	char _value;
 public:
-	HuffmanLeafNode(char value, const int frequency) :
+	HuffmanLeafNode(char value, const uint64_t frequency) :
 		HuffmanNode(),
 		_value(value)
 	{

@@ -16,13 +16,15 @@
 #rm -rf pin/savio.txt
 #mv savio.txt.orig pin/savio.txt
 
-p=1
+p=7
  
 cp inputs/t1.txt inputs/t1.txt.orig
+#mpiexec -machinefile ./machinefile4.txt -n $p valgrind ./a.out compress inputs/t1.txt
 mpiexec -machinefile ./machinefile4.txt -n $p ./a.out compress inputs/t1.txt
 echo "Finished"
 echo ""
 echo ""
+#mpiexec -machinefile ./machinefile4.txt -n $p valgrind ./a.out decompress inputs/t1.txt.hez
 mpiexec -machinefile ./machinefile4.txt -n $p ./a.out decompress inputs/t1.txt.hez
 echo "Finished"
 echo ""

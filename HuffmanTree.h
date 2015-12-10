@@ -77,7 +77,9 @@ class HuffmanTree
 
 		HuffmanTree(const char value, const uint64_t weight) :
 			_root(new HuffmanLeafNode(value, weight))
-		{ }
+		{
+
+		}
 
 		HuffmanNode *GetRoot()
 		{
