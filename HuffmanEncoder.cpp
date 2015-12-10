@@ -100,10 +100,12 @@ HuffmanEncoder::DecompressFileWithPadding(const string& filename)
 
 	CompressedFile::ReadMetadataFromFile(inputFile, &huffmanMap);
 
+	printf("%d: my offset: %ld\n", mpirank, offsets[mpirank]);
 	vector<bool> compressedData = CompressedFile::ReadFromFile(inputFile,
 			offsets[mpirank]);
 	fclose(inputFile);
 
+	printf("%d: Decoding %ld bits\n", mpirank, compressedData.size());
 	string text = HuffmanEncoder::decodeBits(compressedData, *huffmanMap);
 
 	/* Length in bytes of uncompressed data */
@@ -210,15 +212,18 @@ HuffmanEncoder::CompressFileWithPadding(int divisions, const string& filename)
 	string output_file_name = filename + ".hez";
 
 	/* Length in bytes of compressed data */
-	uint64_t lengthToWrite = ceil(raw_stream.size()/8);
+	uint64_t lengthToWrite = (uint64_t)ceil((double)raw_stream.size()/8);
+	printf("%d: My length to write: %ld, raw size: %ld\n", mpirank, lengthToWrite, raw_stream.size());
 	/* Leave room to print length of chunk */
 	lengthToWrite += sizeof(size_t);
 	uint64_t offset = 0;
 	metadataOffset = calculateMetaDataSize(encoder);
+	if (mpirank == 0) {
+		printf("metadata offset: %d\n", metadataOffset);
+	}
 
 	/* Parallel prefix to determine where to start writing uncompressed data in
 	 * the file */
-
 	if (mpirank == 0) {
 		int fd = creat(output_file_name.c_str(), 0664);
 		if (fd < 0) {
@@ -267,15 +272,16 @@ HuffmanEncoder::CompressFileWithPadding(int divisions, const string& filename)
 	offset += metadataOffset;
 
 	/* Gather offsets from all files for metadata writing */
-	printf("%d: Gathering offsets...\n", mpirank);
+	printf("%d: Gathering offsets...my offset: %ld\n", mpirank, offset);
 	err = MPI_Gather(&offset, 1, MPI_UINT64_T, offsets, 1, MPI_UINT64_T, 0,
 			MPI_COMM_WORLD);
-	printf("%d: Gathered offsets...\n", mpirank);
+	printf("%d: Gathered offsets...my offset: %ld\n", mpirank, offsets[mpirank]);
 
 	if (mpirank == 0) {
 		printf("%d: Writing metadata!\n", mpirank);
 		CompressedFile::WriteMetadataToFile(output_file, encoder);
 	}
+	printf("%d: my new offset: %ld\n", mpirank, offsets[mpirank]);
 
 	printf("%d: Writing my chunk to the file!\n", mpirank);
 	CompressedFile::WriteToFile(output_file, raw_stream, offset);
@@ -304,44 +310,34 @@ HuffmanEncoder::huffmanTreeFromText(vector<char> data)
 	uint64_t myFreqMap[256], globalFreqMap[256];
 	memset(myFreqMap, 0, 256);
 
-	for (auto it = data.begin(); it != data.end(); ++it) {
-		myFreqMap[(int)((unsigned char)*it)]++;
-	}
 
 	unordered_map<char, uint64_t> freqMap;
 	for (auto it = data.begin(); it != data.end(); ++it) {
 		freqMap[*it]++;
 	}
 
-	/* TODO: change all of these to uint64 since frequency might get crazy!! */
+	for (auto it = freqMap.begin(); it != freqMap.end(); ++it) {
+		myFreqMap[(int)(unsigned char)it->first] = it->second;
+	}
+
 	/* Get global frequencies so all nodes have same Huffman coding dictionaries
 	*/
-	/*
-	   int err = MPI_Allreduce(myFreqMap, globalFreqMap, 256, MPI_UINT64_T, MPI_SUM,
-	   MPI_COMM_WORLD);
-	   if (err) {
-	   printf("Problem with MPI all reduce. Exiting...\n");
-	   exit(1);
-	   }
-	   */
+	int err = MPI_Allreduce(myFreqMap, globalFreqMap, 256, MPI_UINT64_T, MPI_SUM,
+			MPI_COMM_WORLD);
+	if (err) {
+		printf("Problem with MPI all reduce. Exiting...\n");
+		exit(1);
+	}
 
 	priority_queue<HuffmanTree*,vector<HuffmanTree*>,HuffmanTreeCompare> forest{};
 
 	for (int i = 0; i < 256; i++) {
-		if (myFreqMap[i] == 0) {
-			printf("It's zero!\n");
+		if (globalFreqMap[i] == 0) {
 			continue;
 		}
-		HuffmanTree *tree = new HuffmanTree((char)i, myFreqMap[i]);
+		HuffmanTree *tree = new HuffmanTree((char)i, globalFreqMap[i]);
 		forest.push(tree);
 	}
-
-	/*
-	for (auto it = freqMap.begin(); it != freqMap.end(); it++) {
-		HuffmanTree *tree = new HuffmanTree(it->first, it->second);
-		forest.push(tree);
-	}
-	*/
 
 	printf("%ld trees in forest, data size: %ld\n", forest.size(), data.size());
 
@@ -587,6 +583,15 @@ HuffmanEncoder::decodeBits(vector<bool> bits, vector<string> huffmanMap)
 		last_index++;
 	}
 
+	/* TODO: perhaps the priority queue is different for each? That might
+	 * explain it. Compare frequencies, that can't be wrong. Issue is we have
+	 * different huffman maps on each run. Although, that might not be a problem
+	 * on write. The files are slightly different, make sure it's writing to a
+	 * good offset. Maybe try writing/reading garbage from that spot or
+	 * something, print out the first few chars, idk. Print where the offsets
+	 * and such are. Figure out exactly what is going where and if the way it's
+	 * getting compressed/decompressed differently is a problem. */
+
 
 	return result.str();
 }
@@ -595,8 +600,13 @@ HuffmanEncoder::decodeBits(vector<bool> bits, vector<string> huffmanMap)
 HuffmanEncoder::toBinary(vector<char> text, vector<string> huffmanMap)
 {
 	vector<bool> result;
-	int num_encoded = 0;
+	uint64_t num_encoded = 0, bits = 0;
 
+	string filename = "test" + std::to_string((long long int)mpirank);
+	FILE *f = fopen(filename.c_str(), "w");
+	for (unsigned int i = 0; i < huffmanMap.size(); i++) {
+		fprintf(f, "%d: %s\n", i, huffmanMap[i].c_str());
+	}
 	for (auto it = text.begin(); it != text.end(); ++it) {
 		char c = *it;
 		num_encoded++;
@@ -605,9 +615,12 @@ HuffmanEncoder::toBinary(vector<char> text, vector<string> huffmanMap)
 
 		for (auto it2 = code.begin(); it2 != code.end(); ++it2) {
 			char b = *it2;
+			bits++;
 			result.push_back(b == '1');
 		}
 	}
+
+	printf("%d: encoded %ld, pushed %ld bits, size: %ld\n",mpirank, num_encoded, bits, result.size());
 
 
 	return result;
