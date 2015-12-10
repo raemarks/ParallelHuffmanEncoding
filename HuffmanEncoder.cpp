@@ -201,7 +201,7 @@ HuffmanEncoder::CompressFileWithPadding(int divisions, const string& filename)
 	printf("%d: Reading file at offset %ld with chunk size %ld\n", mpirank,
 			offsets[mpirank], chunkLengths[mpirank]);
 	vector<char> text = readFile(filename, chunkLengths[mpirank], offsets[mpirank]);
-	printf("%d: read file!\n", mpirank);
+	printf("%d: read file! Text length: %ld\n", mpirank, text.size());
 
 	HuffmanTree *coding_tree = HuffmanEncoder::huffmanTreeFromText(text);
 
@@ -310,8 +310,11 @@ HuffmanEncoder::huffmanTreeFromText(vector<char> data)
 	uint64_t myFreqMap[256], globalFreqMap[256];
 	memset(myFreqMap, 0, 256);
 
+	//filename = "tft" + std::to_string((long long int)mpirank);
+	//FILE *outfile = fopen("tft", "w");
 
-	unordered_map<char, uint64_t> freqMap;
+
+	unordered_map<char, uint64_t> freqMap{};
 	for (auto it = data.begin(); it != data.end(); ++it) {
 		freqMap[*it]++;
 	}
@@ -336,6 +339,9 @@ HuffmanEncoder::huffmanTreeFromText(vector<char> data)
 			continue;
 		}
 		HuffmanTree *tree = new HuffmanTree((char)i, globalFreqMap[i]);
+		if (tree->GetWeight() == 0) {
+			printf("Weight is 0!!!********************************************************8\n");
+		}
 		forest.push(tree);
 	}
 
@@ -349,7 +355,7 @@ HuffmanEncoder::huffmanTreeFromText(vector<char> data)
 		HuffmanTree *tree = new HuffmanTree(smallest, secondSmallest);
 		forest.push(tree);
 	}
-	//forest.top()->Print();
+	forest.top()->Print();
 
 	return forest.top();
 }

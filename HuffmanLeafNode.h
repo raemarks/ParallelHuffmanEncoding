@@ -7,13 +7,11 @@ class HuffmanLeafNode : public HuffmanNode
 private:
 	char _value;
 public:
-	HuffmanLeafNode(char value, const int frequency) : HuffmanNode()
+	HuffmanLeafNode(char value, const int frequency) :
+		HuffmanNode(),
+		_value(value)
 	{
-		_value = value;
 		_weight = frequency;
-		if (value < 0) {
-			//printf("VALUE IS NEGATIVE %d\n", (int)value);
-		}
 	}
 
 	~HuffmanLeafNode() {}

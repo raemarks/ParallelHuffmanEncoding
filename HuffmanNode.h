@@ -6,6 +6,8 @@ protected:
 	int _weight;
 public:
 
+	HuffmanNode() : _weight(0) {}
+
 	/* Gets weight of huffman node and children */
 	virtual int GetWeight()
 	{

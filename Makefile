@@ -1,4 +1,7 @@
 all:
+	mpicxx -std=c++0x -Weffc++ -lm -g -Wall main.cpp CompressedFile.cpp HuffmanEncoder.cpp
+
+easy:
 	mpicxx -std=c++0x -lm -g -Wall main.cpp CompressedFile.cpp HuffmanEncoder.cpp
 
 local:

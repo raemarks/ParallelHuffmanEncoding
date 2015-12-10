@@ -2,92 +2,111 @@
 #define HUFFMAN_TREE_H
 
 #include <stdint.h>
+#include <string>
+#include <stdio.h>
 
+#include "Constants.h"
 #include "HuffmanInternalNode.h"
 #include "HuffmanLeafNode.h"
+
+
 class HuffmanTree
 {
 	private:
 		HuffmanNode *_root;
 
-		void writeTabs(int n)
+		void writeTabs(FILE *outfile, int n)
 		{
-			for (int i = 0; i < n; i++) {printf("+");}
+			for (int i = 0; i < n; i++) {fprintf(outfile, "+");}
 		}
 
-		void printTreeRec(HuffmanNode *nd, int depth)
+		void printTreeRec(HuffmanNode *nd, int depth, FILE *outfile)
 		{
-			writeTabs(depth);
-			printf("[");
-			PrintNodeLabel(nd);
-			printf("]");
+			writeTabs(outfile, depth);
+			fprintf(outfile, "[");
+			PrintNodeLabel(outfile, nd);
+			fprintf(outfile, "]");
 
 			if (nd == NULL) {
-				printf("\n");
+				fprintf(outfile, "\n");
 				return;
 			}
 			else if (nd->IsLeaf()) {
-				printf("\n");
+				fprintf(outfile, "\n");
 				return;
 			}
 			else {
-				printf("{");
+				fprintf(outfile, "{");
 				HuffmanInternalNode *in = (HuffmanInternalNode*) nd;
-				printf("\n");
+				fprintf(outfile, "\n");
 				//if (in->GetLeftChild() != NULL) {
-					printTreeRec(in->GetLeftChild(), depth+1);
+					printTreeRec(in->GetLeftChild(), depth+1, outfile);
 				//}
 				//if (in->GetRightChild() != NULL) {
-					printTreeRec(in->GetRightChild(), depth+1);
+					printTreeRec(in->GetRightChild(), depth+1, outfile);
 				//}
 
 				for (int i = 0; i < depth; ++i) {
-					printf("+");
+					fprintf(outfile, "+");
 				}
-				printf("}\n");
+				fprintf(outfile, "}\n");
 			}
 		}
 
-		void PrintNodeLabel(HuffmanNode *n)
+		void PrintNodeLabel(FILE *outfile, HuffmanNode *n)
 		{
 			if (n == NULL)
-				printf("NULL");
+				fprintf(outfile, "NULL");
 			else if (n->IsLeaf()) {
 				HuffmanLeafNode *ln = (HuffmanLeafNode*) n;
 
-				printf("ln:%d", (int)ln->GetValue());
+				fprintf(outfile, "ln:%d", (int)ln->GetValue());
 			}
 			else {
-				printf("in");
+				fprintf(outfile, "in");
 			}
 		}
 
 
 	public:
-		HuffmanTree(const char value, const uint64_t weight)
-		{
-			_root = new HuffmanLeafNode(value, weight);
-		}
+		/* Copy constructor - just make it a shallow copy. */
+		HuffmanTree(const HuffmanTree &ht) : _root(ht._root)
+	{
+		printf("In copy constructor for huffmantree\n");
+	}
+
+		HuffmanTree(const char value, const uint64_t weight) :
+			_root(new HuffmanLeafNode(value, weight))
+		{ }
 
 		HuffmanNode *GetRoot()
 		{
 			return _root;
 		}
 
+		HuffmanTree& operator=(const HuffmanTree &other)
+		{
+			if (this != &other) {
+				_root = other._root;
+			}
+			return *this;
+		}
+
 		void Print()
 		{
-			printTreeRec(_root, 0);
+			std::string filename = "tree_" + std::to_string((long long int) mpirank);
+			FILE *outfile = fopen(filename.c_str(), "w");
+			printTreeRec( _root, 0, outfile);
+			fclose(outfile);
 		}
 
-		HuffmanTree(HuffmanTree *left, HuffmanTree *right)
+		HuffmanTree(HuffmanTree *left, HuffmanTree *right) :
+			_root(new HuffmanInternalNode(left->GetRoot(), right->GetRoot()))
 		{
-			_root = new HuffmanInternalNode(left->GetRoot(), right->GetRoot());
 		}
 
-		HuffmanTree(HuffmanInternalNode *root)
-		{
-			_root = root;
-		}
+		HuffmanTree(HuffmanInternalNode *root) : _root(root)
+		{ }
 
 		~HuffmanTree()
 		{

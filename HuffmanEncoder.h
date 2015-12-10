@@ -10,7 +10,6 @@
 #include <sstream>
 #include <unordered_map>
 #include "BinaryFile.h"
-#include "StringSplitter.h"
 
 using namespace std;
 

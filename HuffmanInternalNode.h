@@ -16,15 +16,31 @@ class HuffmanInternalNode : public HuffmanNode
 
 	public:
 		HuffmanInternalNode(HuffmanNode *left_child,
-				HuffmanNode *right_child) : HuffmanNode()
+				HuffmanNode *right_child) :
+			HuffmanNode(),
+			_left_child(left_child),
+			_right_child(right_child)
 	{
 		if (left_child != NULL && right_child != NULL)
 		{
 			_weight = left_child->GetWeight() + right_child->GetWeight();
 		}
-		_left_child = left_child;
-		_right_child = right_child;
 	}
+
+	HuffmanInternalNode& operator=(const HuffmanInternalNode& other)
+	{
+		/* Just make a shallow copy. */
+		if (this != &other) {
+			_left_child = other._left_child;
+			_right_child = other._right_child;
+		}
+		return *this;
+	}
+
+		HuffmanInternalNode(const HuffmanInternalNode& h) :
+			_left_child(h._left_child),
+			_right_child(h._right_child)
+		{ printf("In copy constructor for huffmaninternalnode\n"); }
 
 		~HuffmanInternalNode() {}
 		//internal nodes are not leaf nodes!

@@ -40,6 +40,7 @@ stat inputs/t1.txt.hez
 
 rm -rf inputs/t1.txt inputs/t1.txt.hez
 mv inputs/t1.txt.orig inputs/t1.txt
+mv tree_0 tree_0_old
 
 #./a.out pin/t1.txt
 #./a.out pin/kennedy.txt
