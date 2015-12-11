@@ -89,8 +89,13 @@ CompressedFile::WriteMetadataToFile(FILE *outputFile, const vector<string>& huff
 
 	printf("Writing divisions...\n");
 	fwrite((void*)&ndivisions, sizeof(uint32_t), 1, outputFile);
-	fwrite((void*)offsets, sizeof(uint64_t), ndivisions, outputFile);
+	fwrite((void*)newOffsets, sizeof(uint64_t), ndivisions, outputFile);
 	printf("%d divisions\n", ndivisions);
+	printf("Offsets I wrote: \n");
+	for (unsigned int i = 0; i < ndivisions; i++) {
+		printf("%ld | ", newOffsets[i]);
+	}
+	printf("\n");
 
 	/* Write #bits needed to store the max code length */
 	fwrite((const char*)&len, sizeof(int), 1, outputFile);
@@ -165,6 +170,13 @@ CompressedFile::ReadMetadataFromFile(FILE *inputFile, vector<string>** huffmanMa
 	fread((void*)&ndivisions, sizeof(uint32_t), 1, inputFile);
 	offsets = (uint64_t*) malloc(sizeof(uint64_t)*ndivisions);
 	fread((void*)offsets, sizeof(uint64_t), ndivisions, inputFile);
+	//printf("Offsets I read: \n");
+	/*
+	for (unsigned int i = 0; i < ndivisions; i++) {
+		printf("%ld || ", offsets[i]);
+	}
+	*/
+	printf("\n");
 	printf("%d divisions\n", ndivisions);
 
 	fread((void*)(&len), sizeof(len), 1, inputFile);

@@ -16,8 +16,7 @@
 #rm -rf pin/savio.txt
 #mv savio.txt.orig pin/savio.txt
 
-p=7
- 
+p=16
 cp inputs/t1.txt inputs/t1.txt.orig
 #mpiexec -machinefile ./machinefile4.txt -n $p valgrind ./a.out compress inputs/t1.txt
 mpiexec -machinefile ./machinefile4.txt -n $p ./a.out compress inputs/t1.txt
@@ -39,10 +38,9 @@ stat inputs/t1.txt
 echo ""
 echo "STAT OF COMPRESSED FILE:"
 stat inputs/t1.txt.hez
-
+#
 rm -rf inputs/t1.txt inputs/t1.txt.hez
 mv inputs/t1.txt.orig inputs/t1.txt
-mv tree_0 tree_0_old
 
 #./a.out pin/t1.txt
 #./a.out pin/kennedy.txt

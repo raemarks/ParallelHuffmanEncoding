@@ -17,10 +17,6 @@
 
 int p;
 int mpirank;
-uint32_t ndivisions;
-uint32_t metadataOffset;
-uint64_t *offsets;
-uint64_t *chunkLengths;
 
 #if 0
 static vector<char> readFile(string input_file_name, uint64_t toRead,
@@ -70,7 +66,7 @@ int main(int argc, char* argv[])
 	MPI_Comm_rank(MPI_COMM_WORLD,&mpirank);
 	MPI_Comm_size(MPI_COMM_WORLD,&p);
 
-	ndivisions = p;
+	int divisions = 42;
 
 	if (argc == 2)
 	{
@@ -94,7 +90,7 @@ int main(int argc, char* argv[])
 				exit(1);
 			}
 
-			HuffmanEncoder::CompressFileWithPadding(p, to_compress);
+			HuffmanEncoder::CompressFileWithPadding(divisions, to_compress);
 
 		}
 		else if (string(argv[1]) == "decompress") {

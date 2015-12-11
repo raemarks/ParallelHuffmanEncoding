@@ -1,6 +1,7 @@
 #ifndef _CONSTANTS_H_
 #define _CONSTANTS_H_
 
+#include <vector>
 #include <stdint.h>
 #include <mpi.h>
 
@@ -16,5 +17,19 @@ extern uint64_t *offsets;
 extern uint32_t metadataOffset;
 /* Length of each chunk, with chunks divided up with the devisions */
 extern uint64_t *chunkLengths;
+
+extern std::vector<char> *chunks;
+
+extern std::string *decompressedChunks;
+
+extern std::vector<bool> *compressedChunks;
+
+extern uint64_t *newLengths;
+
+extern uint64_t *newOffsets;
+
+extern int *chunksPerProc;
+
+extern std::vector<int> myChunks;
 
 #endif

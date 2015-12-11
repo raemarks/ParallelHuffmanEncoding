@@ -24,6 +24,8 @@ struct CompressedData {
 class HuffmanEncoder
 {
 	public:
+		static HuffmanTree* huffmanTreeFromFrequencyMap(uint64_t *FreqMap);
+		static void frequencyMapFromText(vector<char> data, uint64_t *FreqMap);
 
 	static int DecompressFileWithPadding(const string& filename);
 	/* Compress the file with the number of divisions indicated by the input
@@ -37,15 +39,12 @@ class HuffmanEncoder
 	 * compress in the case that the compressed chunk has a bit count that is not
 	 * divisible by 8. */
 	static int CompressFileWithoutPadding(int divisions, const string& filename);
+	static void CalculateOffsets();
 
 	/* Finds the smallest tree in a given forest, allowing for
 	 * a single skip */
 	static int
 		findSmallestTree(vector<HuffmanTree *>& forest, int index_to_ignore = -1);
-
-	/* Generates a Huffman character tree from the supplied
-	 * text */
-	static HuffmanTree *huffmanTreeFromText(vector<char> data);
 
 	/* Generates a Huffman character tree from the supplied
 	 * encoding map */
